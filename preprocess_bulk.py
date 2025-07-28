@@ -21,10 +21,13 @@ def parse_args():
     group.add_argument("--list", type=str, help="Path to file with one SRA ID per line")
     parser.add_argument("--input_dir", type=str, default="./data", help="Directory to store raw files")
     parser.add_argument("--output_dir", type=str, default="./output", help="Directory to store FastQC output")
+    parser.add_argument("--GTF", type=str, help="Gene annotation of the reference genome in GTF format")
+    parser.add_argument("--genome", type=str, help="Reference genome in FASTA format")
+    parser.add_argument("--logfile", type=str, default="preprocess_bulk.log", help="Log file to record operations")
     return parser.parse_args()
 
 
-def execute(cmd, outputfile = None, quitOnError = False):
+def execute(cmd, outputfile = None, quitOnError = True):
     # Execute a shell command and log the output.
     if outputfile and os.path.exists(outputfile):
         print("Output file already exists. Skipping function.\n")
@@ -43,25 +46,48 @@ def execute(cmd, outputfile = None, quitOnError = False):
 
 def run_sra(sra_id, input_dir, output_dir):
     # Download SRA data and convert to FASTQ format.
-    execute(f"fastq-dump {sra_id}", f"{sra_id}.fastq")
-    execute(f"fastq-dump {sra_id} --split-files", f"{sra_id}_1.fastq")
-    print(f"mv {sra_id}_1.fastq ")
+    fastq_file = os.path.join(input_dir, f"{sra_id}.fastq")
+    split_fastq_file = os.path.join(input_dir, f"{sra_id}_1.fastq")
+    execute(f"fastq-dump {sra_id}", fastq_file)
+    execute(f"fastq-dump {sra_id} --split-files", split_fastq_file)
 
 def run_fastqc(sra_id, input_dir, output_dir):
     # Run FastQC on the downloaded FASTQ files to check quality of sequences.
     fastqc_out_dir = os.path.join(output_dir, "fastqc-out")
+    os.makedirs(fastqc_out_dir, exist_ok=True)
     fastqc_input = [
         f"{sra_id}_1.fastq",
         f"{sra_id}_2.fastq"
     ]
     fastqc_exec = f"fastqc -o {fastqc_out_dir} -t4"
     fastqc_cmd = f"{fastqc_exec} {' '.join(fastqc_input)}"
-    execute(fastqc_cmd, f"{fastqc_out_dir}/{sra_id}_1_fastqc.html")
+    execute(fastqc_cmd, os.path.join(fastqc_out_dir, f"{sra_id}_1_fastqc.html"))
+
+def run_star(gtf_file, genome_file, output_dir, sra_id, input_dir):
+    #Indexing of reference genome using STAR.  (memory-intensive)
+    run_mode = f"STAR --runMode genomeGenerate --genomeDir {output_dir} --genomeFastaFiles {genome_file} --sjdbGTFfile {gtf_file}"
+    execute(run_mode) 
+    # Aligning reads to the reference genome using STAR.
+    align_mode = f"STAR --runThreadN 4 --genomeDir {output_dir} --readFilesIn {input_dir}/{sra_id}_1.fastq {input_dir}/{sra_id}_2.fastq --outSAMtype BAM SortedByCoordinate"
+    execute(align_mode, os.path.join(output_dir, f"{sra_id}_aligned.bam"))
+
+def run_samtools(input_bam, output_dir):
+    #Use samtools to sort and index the BAM file.
+    #sorted_bam = os.path.join(output_dir, f"{sra_id}_sorted.bam")
+    #execute(f"samtools sort -o {sorted_bam} {input_bam}")
+    pass
+
+def run_htseq():
+    #Run HTSeq to count reads per gene.
+    pass  
 
 #list of software preprocess functions stored in a dictionary
 software_preprocess = {
     "sra" : run_sra,
-    "fastqc": run_fastqc
+    "fastqc": run_fastqc,
+    "STAR indexing and aligner": run_star
+    # "samtools": run_samtools,
+    # "htseq": run_htseq
 }
 
 def select_operations():
@@ -94,6 +120,9 @@ def main():
     output_dir = args.output_dir
     if not os.path.exists(output_dir):
         os.makedirs(output_dir, exist_ok=True)
+    gtf_file = args.GTF
+    genome_file = args.genome
+    input_bam = os.path.join(output_dir, f"{sra_id}_aligned.bam")
     sra_ids = []
     if args.sra:
         sra_ids.append(args.sra)
@@ -118,12 +147,3 @@ if __name__ == "__main__":
     print("Preprocessing completed.")
     log("Preprocessing completed.")
         
-
-
-   
-
-    
-    
-    
-    
-    
