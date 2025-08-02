@@ -1,0 +1,10 @@
+Log file created.
+[2025-08-02 21:19:56]: prefetch SRR453566 -O ./data
+[2025-08-02 21:21:58]: prefetch SRR453566 -O ./data executed.
+[2025-08-02 21:21:58]: fasterq-dump ./data/SRR453566/SRR453566.sra --split-files
+[2025-08-02 21:24:23]: fasterq-dump ./data/SRR453566/SRR453566.sra --split-files executed.
+[2025-08-02 21:24:23]: fastqc -o ./output/fastqc-out -t 4 SRR453566_1.fastq SRR453566_2.fastq
+[2025-08-02 21:27:23]: fastqc -o ./output/fastqc-out -t 4 SRR453566_1.fastq SRR453566_2.fastq executed.
+[2025-08-02 21:27:23]: Operation sra is not defined in the software_preprocess dictionary.
+[2025-08-02 21:27:23]: Operation fastqc is not defined in the software_preprocess dictionary.
+[2025-08-02 21:27:23]: Preprocessing completed.
